@@ -27,9 +27,10 @@ class StListener(tweepy.StreamListener):
     def __init__(self):
         super(self.__class__, self).__init__()
         data['count'] = 0
-        data['minute'] = arrow.utcnow().format('m')
+        now = arrow.utcnow()
         data['history'].append({'wtfs per minute': data['count'],
-                                'minute': data['minute']})
+                                'datetime': now.isoformat(),
+                                'minute': now.minute})
 
     def on_status(self, status):
         ''' on new tweet with specific hashtag '''
@@ -47,15 +48,22 @@ class StListener(tweepy.StreamListener):
         return True
 
 
-def count_resetter():
+def resetter():
     ''' reset the count every minute '''
     while True:
         time.sleep(1)
-        if arrow.utcnow().format('m') != data['minute']:
+        now = arrow.utcnow()
+        if now.minute == 00:
             data['count'] = 0
-            data['minute'] = arrow.utcnow().format('m')
+            data['history'] = []
             data['history'].append({'wtfs per minute': data['count'],
-                                    'minute': data['minute']})
+                                    'datetime': now.isoformat(),
+                                    'minute': now.minute})
+        if now.minute != arrow.get(data['history'][-1]['datetime']).minute:
+            data['count'] = 0
+            data['history'].append({'wtfs per minute': data['count'],
+                                    'datetime': now.isoformat(),
+                                    'minute': now.minute})
             socketio.emit('my response',
                           json.dumps(data),
                           namespace='/test')
@@ -92,5 +100,5 @@ def hashwall_disconnect():
 
 if __name__ == '__main__':
     threading.Thread(target=listen).start()
-    threading.Thread(target=count_resetter).start()
+    threading.Thread(target=resetter).start()
     socketio.run(app)
